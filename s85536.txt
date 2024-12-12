@@ -1,0 +1,237 @@
+#!/bin/bash
+
+function platz(){
+        echo "
+        "
+}
+
+function neintrag {
+        echo "Es gibt insgesamt $(grep "^}" literatur.bib | wc -l) Einträge."
+        platz
+}
+
+function nkategorie {
+        variable=$(cut -d "{" -f1 literatur.bib | grep "^@[[:alpha:]]\{1,\}" |  sort | uniq)
+
+        echo "$variable" | while read line; do echo "$line hat $(grep -o "$line{" literatur.bib | wc -l          ) Einträge "; done
+        platz
+}
+
+function njahr {
+        variable2=$(grep  "year =[[:space:]]\{0,\}[0-9]\{0,\}" literatur.bib | grep -o "[0-9]\{4\}" | sort | uniq)
+
+        echo "$variable2" | while read jahr; do echo "Das Jahr $jahr hat $(grep "year =.\{0,\}$jahr" literatur.bib | wc -l)" Eintrag/Einträge; done
+        platz
+}
+
+function vklammerzu {
+        echo "Titel-Zeilen wo das \" vor dem { fehlt:"
+        grep -o -n "title =.\{0,\}" literatur.bib | grep "title =[[:space:]]\{0,\}{.\{0,\}"
+        platz
+}
+
+function gachtzig {
+        echo "Zeilen welche mehr als 80 Zeichen haben:"
+        grep -n ".\{80,\}" literatur.bib
+        platz
+}
+
+function unpljahre {
+echo "Zeilen mit unplausiblen Jahreszahlen:"
+jz=$(grep -n -v "^@.*xxxx" literatur.bib | grep "^[0-9]*:@\|year =")
+
+djahr=$(date +%Y)
+
+echo "$jz" | while read z
+do
+        i=$(echo "$z" | grep -o ":[0-9]\{4\}:\|year =[[:space:]]*[0-9]\{4\}" |grep -o [0-9]*)
+        j=$(echo "$z" | cut -d ":" -f1)
+        #echo "$j jahr $i"
+
+        if [[ $i > $djahr ]] || [[ $i < "1500" ]]
+        then
+        echo "Zeile $j : $(head -$j literatur.bib | tail -1)"
+        else
+                continue
+        fi
+
+done
+
+echo "Einträge wo Zitierschlüssel und Attribut nicht übereinstimmen:"
+
+zanfang=$(grep "^@" literatur.bib)
+
+
+
+echo "$zanfang" | while read line
+do
+
+        if [ $line == "@InProceedings{Kopetz:1995:tta," ] || [ $line == "@Article{Malcolm1994:ttp," ]
+        then
+                continue
+        else
+
+                eintrag=$(awk /$line/,/^}/ literatur.bib)
+                #echo "$eintrag"
+
+                zahlen=$(echo "$eintrag" | grep "^@\|year =")
+                #echo "$zahlen"
+
+                un=$(echo "$zahlen" | head -1 | tail -1| grep -o ":[0-9]\{4\}:" | grep -o "[0-9]*")
+                #echo "$un"
+                deux=$(echo "$zahlen" | head -2 | tail -1 | grep -o "[0-9]*")
+                #echo "$deux"
+
+                if [[ $un != $deux ]]
+                then
+                        echo "$eintrag"
+
+                fi
+
+        fi
+done
+
+}
+
+function fzitierschl {
+        echo "Zeilen ohne korrekten Zitierschlüssel:"
+#       grep -n "^@.\{0,\}" literatur.bib | grep -v "@[[:alpha:]]\{0,\}{\([[:alpha:]]\|-\)\{0,\}:\(\([0-9]\{4\}\)\|xxxx\):\([[:alnum:]]\|[-+._]\)\{0,\}"
+
+#       grep -n "^@" literatur.bib | grep -v "@[[:alpha:]]\{0,\}{[[:alpha:]]\{0,\}:\(\([0-9]\{4\}\)\|\(xxxx\)\):\(\([[:alnum:]]*\)\|[-+._]\)\{0,\},"
+
+grep -n "^@" literatur.bib | grep -v "@.\{0,\}{.\{0,\}:\(\([0-9]\{4\}\)\|\(xxxx\)\):\(\([[:alnum:]]*\)\|[-+._]\)\{0,\},"
+
+        platz
+
+
+}
+
+function lzkomma {
+
+
+        echo "Eintreage deren letztes Attribut mit einem Komma endet:"
+klammer=$(grep -n "^}" literatur.bib | grep -o "[0-9]*")
+echo "$klammer"| grep -o [0-9]* |while read line
+do
+        #if [[ $line == 13 ]]
+        #then
+        #echo "$line"
+        #fi
+
+        let j=$line-1
+        #echo "$j"
+        a=$(head -$j literatur.bib | tail -1)
+        #echo "$a"
+        b=$(echo "$a" | grep -o ",$")
+        if [[ $b == "," ]]
+        then
+                 x=1
+                y=0
+
+               for((i=$j;$x != $y; i--))
+                do
+                        c=$(head -$i literatur.bib | tail -1)
+                        d=$(head -$i literatur.bib | tail -1 | grep -o "^@")
+                        if [[ $d == "@" ]]
+                        then
+                                echo "$(awk /$c/,/^}/ literatur.bib)"
+                              y="1"
+                        fi
+
+              done
+
+        fi
+                                                                                    139,4         51%                                                                                     92,4          25% 
+        done
+        platz
+}
+
+function urlcheck {
+        echo "Nicht funktionierende Links:"
+        URL=$(grep -n "url " literatur.bib)
+
+        echo "$URL"| while read line
+
+        do
+        LINK=$(echo "$line"  | cut -d "{" -f2 | cut -d "}" -f1 )
+        timeout 10s wget --spider -q "$LINK" #timeout einbauen
+
+        if [ $? -ne 0 ]; then
+    grep -n "$LINK" literatur.bib
+        fi
+done
+}
+
+        platz
+
+function suche(){
+
+echo "Im folgendem werden alle Einträge aus der Datei literatur.bib im Intervall [a|b] ausgegeben.              Geben Sie bitte jetzt a für [a|b] ein."
+read a
+
+echo "Intervall: [$a|b]         Geben sie jetzt bitte b ein."
+read b
+
+
+let c=$b+1
+s=$a
+
+if [ $a -lt 1500 ] || [ $b -gt $(date +%Y) ]
+then
+        echo "Bitte ein Jahr zwischen 1500 und 2023 wählen"
+        exit 2
+fi
+
+if [ $a -gt $b ]
+then
+        a=$b
+        b=$s
+        let c=$b+1
+fi
+
+echo "Das festgelegte Intevall ist [$a|$b]"
+ for ((i=$a; i<$c;i++))
+do
+        echo "$(awk /:$i:/,/^}/ literatur.bib)"
+done
+}
+
+case $1 in
+        "stat")
+        platz
+        neintrag
+        nkategorie
+        njahr
+        exit 0
+                ;;
+
+        "check")
+        platz
+        vklammerzu
+        gachtzig
+        unpljahre
+        fzitierschl
+        lzkomma
+        urlcheck
+        exit 0
+
+                ;;
+
+        "search")
+        platz
+        suche
+        exit 0
+                ;;
+
+        *)
+                echo "
+                Bitte neben ./s85536 \"stat\" \"check\" oder \"search\" eingeben. \"$1\" ist ungültig.
+                "
+                exit 0
+
+                ;;
+
+esac
+
+exit 0
+                                                                                    237,4        Ende                                                                            1,4        Anfang 
